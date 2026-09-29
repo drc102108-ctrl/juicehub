@@ -1,6 +1,6 @@
 --[[
 	============================================================
-	  JUICE HUB  —  WalkSpeed · JumpPower · Sticky Head · Mags
+	  JUICE HUB  —  WalkSpeed · JumpPower · Sticky Head · Mags · Launch
 	============================================================
 	 • Toggle GUI: ] (edit TOGGLE_KEY below)
 	 • Drag the window by its title bar
@@ -26,6 +26,7 @@ local DEFAULT_JUMP = 50
 local DEFAULT_PULL = 2.0
 local DEFAULT_STICKY = 2.0
 local DEFAULT_MAG = 50
+local DEFAULT_LAUNCH = 50
 local ACCENT = Color3.fromRGB(0, 170, 255)   -- accent color for switches
 local BG     = Color3.fromRGB(18, 18, 22)    -- window background
 local PANEL  = Color3.fromRGB(28, 28, 34)    -- row background
@@ -43,6 +44,8 @@ local stickiness = DEFAULT_STICKY
 
 local magEnabled = false
 local magPower = DEFAULT_MAG
+
+local launchPower = DEFAULT_LAUNCH
 
 local humanoid
 
@@ -136,7 +139,7 @@ if not ok then
 end
 
 local frame = Instance.new("Frame")
-frame.Size = UDim2.new(0, 340, 0, 430)
+frame.Size = UDim2.new(0, 340, 0, 488)
 frame.Position = UDim2.new(0.5, -170, 0.5, -186)
 frame.BackgroundColor3 = BG
 frame.BorderSizePixel = 0
@@ -244,6 +247,19 @@ local stickyRow = makeRow(3, "Sticky Head", "", true)
 local pullRow   = makeRow(4, "Pull Strength", string.format("%.1f", DEFAULT_PULL), false)
 local stick2Row = makeRow(5, "Stickiness", string.format("%.1f", DEFAULT_STICKY), false)
 local magRow    = makeRow(6, "Mags: " .. DEFAULT_MAG, tostring(DEFAULT_MAG), true)
+local launchRow = makeRow(7, "Launch Power: " .. DEFAULT_LAUNCH, tostring(DEFAULT_LAUNCH), false)
+
+-- Launch button (replaces the switch spot on the launch row)
+local launchBtn = Instance.new("TextButton")
+launchBtn.Size = UDim2.new(0, 46, 0, 24)
+launchBtn.Position = UDim2.new(1, -50, 0.5, -12)
+launchBtn.BackgroundColor3 = ACCENT
+launchBtn.Text = "GO"
+launchBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+launchBtn.TextSize = 12
+launchBtn.Font = Enum.Font.GothamBold
+launchBtn.Parent = launchRow.row
+round(launchBtn, 12)
 
 pullRow.label.Text = "Pull Strength: " .. string.format("%.1f", pullStrength)
 stick2Row.label.Text = "Stickiness: " .. string.format("%.1f", stickiness)
@@ -312,6 +328,26 @@ end)
 magRow.box.FocusLost:Connect(function()
 	magPower = clampValue(magRow.box, DEFAULT_MAG)
 	magRow.label.Text = "Mags: " .. magPower
+end)
+
+-- Launch power: decimals allowed, capped 1-500
+launchRow.box.FocusLost:Connect(function()
+	local num = tonumber(launchRow.box.Text) or DEFAULT_LAUNCH
+	num = math.clamp(num, 1, 500)
+	num = math.floor(num * 10 + 0.5) / 10
+	launchPower = num
+	launchRow.box.Text = (num % 1 == 0) and tostring(num) or string.format("%.1f", num)
+	launchRow.label.Text = "Launch Power: " .. launchRow.box.Text
+end)
+
+-- ============ LAUNCH LOGIC ===============
+-- Flings your character up + forward using AssemblyLinearVelocity
+launchBtn.MouseButton1Click:Connect(function()
+	local character = player.Character
+	local hrp = character and character:FindFirstChild("HumanoidRootPart")
+	if hrp then
+		hrp.AssemblyLinearVelocity = hrp.CFrame.LookVector * launchPower + Vector3.new(0, launchPower, 0)
+	end
 end)
 
 -- ============ MAGS LOGIC =================
