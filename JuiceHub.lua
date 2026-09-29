@@ -260,10 +260,17 @@ footer.Font = Enum.Font.Gotham
 footer.Parent = frame
 
 -- ============ VALUE LOGIC ================
-local function clampValue(box, default)
+-- Rounds to 1 decimal (55, 55.5, 55.2...) and formats without a trailing ".0"
+local function clampValue(box, default, decimals)
 	local num = tonumber(box.Text) or default
-	num = math.clamp(math.floor(num), 1, 100)
-	box.Text = tostring(num)
+	num = math.clamp(num, 1, 100)
+	if decimals then
+		num = math.floor(num * 10 + 0.5) / 10
+		box.Text = (num % 1 == 0) and tostring(num) or string.format("%.1f", num)
+	else
+		num = math.floor(num)
+		box.Text = tostring(num)
+	end
 	return num
 end
 
@@ -275,7 +282,7 @@ local function clampFloat(box, default, decimals)
 end
 
 walkRow.box.FocusLost:Connect(function()
-	walkSpeed = clampValue(walkRow.box, DEFAULT_WALK)
+	walkSpeed = clampValue(walkRow.box, DEFAULT_WALK, 1)
 	walkRow.label.Text = "WalkSpeed: " .. walkSpeed
 
 	if walkEnabled and humanoid then
@@ -284,7 +291,7 @@ walkRow.box.FocusLost:Connect(function()
 end)
 
 jumpRow.box.FocusLost:Connect(function()
-	jumpPower = clampValue(jumpRow.box, DEFAULT_JUMP)
+	jumpPower = clampValue(jumpRow.box, DEFAULT_JUMP, 1)
 	jumpRow.label.Text = "JumpPower: " .. jumpPower
 
 	if jumpEnabled and humanoid then
