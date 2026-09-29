@@ -2,7 +2,7 @@
 	============================================================
 	  JUICE HUB  —  WalkSpeed · JumpPower · Sticky Head · Mags
 	============================================================
-	 • Toggle GUI: RightControl (edit TOGGLE_KEY below)
+	 • Toggle GUI: ] (edit TOGGLE_KEY below)
 	 • Drag the window by its title bar
 	 • Sliding switches, live value labels, respawn-safe
 	 • Sticky Head pulls the nearest player's head to yours
@@ -20,7 +20,7 @@ local player = Players.LocalPlayer
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 -- ================= CONFIG =================
-local TOGGLE_KEY = Enum.KeyCode.RightControl
+local TOGGLE_KEY = Enum.KeyCode.RightBracket
 local DEFAULT_WALK = 16
 local DEFAULT_JUMP = 50
 local DEFAULT_PULL = 2.0
