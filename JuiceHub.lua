@@ -1,7 +1,6 @@
 --[[
-	===========================================================
-	
-  JUICE HUB  —  WalkSpeed · JumpPower · Sticky Head
+	============================================================
+	  JUICE HUB  —  WalkSpeed · JumpPower · Sticky Head · Mags
 	============================================================
 	 • Toggle GUI: RightControl (edit TOGGLE_KEY below)
 	 • Drag the window by its title bar
@@ -18,12 +17,15 @@ local RunService = game:GetService("RunService")
 
 local player = Players.LocalPlayer
 
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
 -- ================= CONFIG =================
 local TOGGLE_KEY = Enum.KeyCode.RightControl
 local DEFAULT_WALK = 16
 local DEFAULT_JUMP = 50
 local DEFAULT_PULL = 2.0
 local DEFAULT_STICKY = 2.0
+local DEFAULT_MAG = 50
 local ACCENT = Color3.fromRGB(0, 170, 255)   -- accent color for switches
 local BG     = Color3.fromRGB(18, 18, 22)    -- window background
 local PANEL  = Color3.fromRGB(28, 28, 34)    -- row background
@@ -38,6 +40,9 @@ local jumpEnabled = false
 local stickyEnabled = false
 local pullStrength = DEFAULT_PULL
 local stickiness = DEFAULT_STICKY
+
+local magEnabled = false
+local magPower = DEFAULT_MAG
 
 local humanoid
 
@@ -91,7 +96,7 @@ local function makeSwitch(parent)
 	local knob = Instance.new("Frame")
 	knob.Size = UDim2.new(0, 18, 0, 18)
 	knob.Position = UDim2.new(0, 3, 0.5, -9)
-	knob.BackgroundColor3 = Color#.fromRGB(200, 200, 205)
+	knob.BackgroundColor3 = Color3.fromRGB(200, 200, 205)
 	knob.Parent = holder
 	round(knob, 9)
 
@@ -106,7 +111,7 @@ local function makeSwitch(parent)
 			props = { Position = onPos, BackgroundColor3 = Color3.fromRGB(255, 255, 255) }
 			TweenService:Create(holder, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { BackgroundColor3 = ACCENT }):Play()
 		else
-			props = { Position = offPos, BackgroundColor3 = Color#.fromRGB(200, 200, 205) }
+			props = { Position = offPos, BackgroundColor3 = Color3.fromRGB(200, 200, 205) }
 			TweenService:Create(holder, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { BackgroundColor3 = Color3.fromRGB(55, 55, 62) }):Play()
 		end
 		TweenService:Create(knob, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), props):Play()
@@ -131,7 +136,7 @@ if not ok then
 end
 
 local frame = Instance.new("Frame")
-frame.Size = UDim2.new(0, 340, 0, 372)
+frame.Size = UDim2.new(0, 340, 0, 430)
 frame.Position = UDim2.new(0.5, -170, 0.5, -186)
 frame.BackgroundColor3 = BG
 frame.BorderSizePixel = 0
@@ -179,7 +184,7 @@ title.Parent = titleBar
 local closeBtn = Instance.new("TextButton")
 closeBtn.Size = UDim2.new(0, 28, 0, 28)
 closeBtn.Position = UDim2.new(1, -36, 0.5, -14)
-closeBtn.BackgroundColor3 = Color#.fromRGB(45, 45, 52)
+closeBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 52)
 closeBtn.Text = "✕"
 closeBtn.TextColor3 = Color3.fromRGB(220, 220, 225)
 closeBtn.TextSize = 14
@@ -211,7 +216,7 @@ local function makeRow(order, labelText, defaultText, withSwitch)
 	local box = Instance.new("TextBox")
 	box.Size = UDim2.new(0, 52, 0, 30)
 	box.Position = UDim2.new(1, -110, 0.5, -15)
-	box.BackgroundColor3 = Color#.fromRGB(40, 40, 47)
+	box.BackgroundColor3 = Color3.fromRGB(40, 40, 47)
 	box.Text = defaultText
 	box.TextColor3 = TEXT
 	box.TextSize = 14
@@ -220,7 +225,7 @@ local function makeRow(order, labelText, defaultText, withSwitch)
 	box.ClearTextOnFocus = false
 	box.Parent = row
 	round(box, 8)
-	stroke(box, 1, Color#.fromRGB(255, 255, 255), 0.88)
+	stroke(box, 1, Color3.fromRGB(255, 255, 255), 0.88)
 
 	local rowTable = { row = row, label = label, box = box }
 
@@ -238,6 +243,7 @@ local jumpRow   = makeRow(2, "JumpPower", tostring(DEFAULT_JUMP), true)
 local stickyRow = makeRow(3, "Sticky Head", "", true)
 local pullRow   = makeRow(4, "Pull Strength", string.format("%.1f", DEFAULT_PULL), false)
 local stick2Row = makeRow(5, "Stickiness", string.format("%.1f", DEFAULT_STICKY), false)
+local magRow    = makeRow(6, "Mags: " .. DEFAULT_MAG, tostring(DEFAULT_MAG), true)
 
 pullRow.label.Text = "Pull Strength: " .. string.format("%.1f", pullStrength)
 stick2Row.label.Text = "Stickiness: " .. string.format("%.1f", stickiness)
@@ -294,6 +300,42 @@ end)
 stick2Row.box.FocusLost:Connect(function()
 	stickiness = clampFloat(stick2Row.box, DEFAULT_STICKY, 1)
 	stick2Row.label.Text = "Stickiness: " .. string.format("%.1f", stickiness)
+end)
+
+magRow.box.FocusLost:Connect(function()
+	magPower = clampValue(magRow.box, DEFAULT_MAG)
+	magRow.label.Text = "Mags: " .. magPower
+end)
+
+-- ============ MAGS LOGIC =================
+-- Needs a RemoteEvent "MagCatchRequest" in ReplicatedStorage + the server
+-- Script in ServerScriptService (the server decides if the catch happens).
+local magRemote = ReplicatedStorage:FindFirstChild("MagCatchRequest")
+
+local function findFootball()
+	local character = player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	if not root then return end
+	local nearest, best = nil, math.huge
+	for _, obj in ipairs(workspace:GetDescendants()) do
+		if obj:IsA("BasePart") and obj.Name == "Football" then
+			local d = (obj.Position - root.Position).Magnitude
+			if d < best then nearest, best = obj, d end
+		end
+	end
+	return nearest
+end
+
+local magAccum = 0
+RunService.Heartbeat:Connect(function(dt)
+	if not magEnabled then return end
+	magAccum += dt
+	if magAccum < 0.1 then return end -- 10 checks/sec, avoids lag + remote spam
+	magAccum = 0
+	magRemote = magRemote or ReplicatedStorage:FindFirstChild("MagCatchRequest")
+	if not magRemote then return end
+	local ball = findFootball()
+	if ball then magRemote:FireServer(ball, magPower) end
 end)
 
 -- ============ STICKY HEAD LOGIC ==========
@@ -387,6 +429,16 @@ wireSwitch(stickyRow, function(v) stickyEnabled = v end,
 	end,
 	function()
 		cleanupSticky()
+	end)
+
+wireSwitch(magRow, function(v) magEnabled = v end,
+	function()
+		if not ReplicatedStorage:FindFirstChild("MagCatchRequest") then
+			magRow.label.Text = "Mags: no remote found"
+		end
+	end,
+	function()
+		magRow.label.Text = "Mags: " .. magPower
 	end)
 
 -- ============ DRAGGING ===================
